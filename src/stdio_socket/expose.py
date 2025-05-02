@@ -44,6 +44,9 @@ def expose(
 async def _expose_stdio_async(command: str, socket_path: Path):
     clients: list[asyncio.StreamWriter] = []
 
+    # turn off local echo and process
+    os.system("stty -echo raw")
+
     # Start the process and pass the current environment variables
     process = await asyncio.create_subprocess_shell(
         command,
@@ -79,6 +82,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             process.stdin.write(char)
             await process.stdin.drain()
 
+
     async def handle_client(reader, writer):
         """Handle a new client connection."""
         sys.stdout.write("Client connected to the socket.\n")
@@ -105,6 +109,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             if not char:
                 break
             process.stdin.write(char)
+            await process.stdin.drain()
 
     async def monitor_process():
         """Monitor the process and exit when it terminates."""
@@ -129,6 +134,9 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             await server.serve_forever()
 
     finally:
+        # restore terminal to normal state
+        os.system("stty cooked")
+
         # Cancel all tasks
         for task in (stdout_task, stdin_task, monitor_task):
             if task and not task.done():
