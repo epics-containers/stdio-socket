@@ -70,6 +70,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     async def write_to_process(reader):
         """Forward input from one client to the process stdin"""
+        assert process.stdin is not None
         while True:
             char = await reader.read(1)  # Read one character
             if not char or char == b"\x03":  # Ctrl+C
@@ -95,6 +96,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     async def monitor_stdin():
         """Forward system stdin to the process stdin."""
+        assert process.stdin is not None
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
         await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
@@ -111,6 +113,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         sys.stdout.write("Process exited. Cleaning up...\n")
         sys.exit(0)  # this does execute the finally blocks
 
+    monitor_task = stdout_task = stdin_task = None
     try:
         # Start monitoring the process for termination
         monitor_task = asyncio.create_task(monitor_process())
@@ -128,9 +131,9 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     finally:
         # Cancel all tasks
-        stdout_task.cancel()
-        stdin_task.cancel()
-        monitor_task.cancel()
+        for task in (stdout_task, stdin_task, monitor_task):
+            if task and not task.done():
+                task.cancel()
 
         # Clean up the socket and subprocess
         if socket_path.exists():
