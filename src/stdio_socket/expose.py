@@ -42,7 +42,6 @@ def expose(
 
 
 async def _expose_stdio_async(command: str, socket_path: Path):
-    socket_path = Path("/tmp") / "stdio.sock"
     clients: list[asyncio.StreamWriter] = []
 
     # Start the process and pass the current environment variables
