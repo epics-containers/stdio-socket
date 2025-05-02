@@ -10,9 +10,7 @@ import typer
 
 from . import __version__
 
-__all__ = ["main"]
-
-cli = typer.Typer()
+__all__ = ["expose"]
 
 
 def version_callback(value: bool):
@@ -21,29 +19,14 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-@cli.callback()
-def main(
-    version: bool | None = typer.Option(
-        None,
-        "--version",
-        callback=version_callback,
-        is_eager=True,
-        help="Print the version of ibek and exit",
-    ),
-):
-    """
-    stdio_socket:
-        Exposes stdio of processes on a unix socket
-        Provides a client to connect to the socket
-    """
-
-
-@cli.command()
 def expose(
     command: Annotated[str, typer.Argument(help="Command to run and expose stdio")],
     socket: Annotated[
         Path, typer.Option(help="The filepath to the socket to use")
     ] = Path("/tmp/stdio.sock"),
+    version: Annotated[
+        bool | None, typer.Option("--version", callback=version_callback)
+    ] = None,
 ):
     """
     Expose the stdio of a process on a socket at unix:///tmp/stdio.sock.
@@ -155,5 +138,8 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         sys.stdout.write("Socket closed.\n")
 
 
-if __name__ == "__main__":
-    cli()
+def main():
+    """
+    Main entry point for this module.
+    """
+    typer.run(expose)
