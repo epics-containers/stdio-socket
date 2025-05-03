@@ -35,6 +35,7 @@ dev = [
 
 [project.scripts]
 stdio-expose = "stdio_socket.__main__:main"
+console = "stdio_socket.__main__:console"
 
 [project.urls]
 GitHub = "https://github.com/epics-containers/stdio-socket"
