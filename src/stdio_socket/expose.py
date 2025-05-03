@@ -5,18 +5,13 @@ import os
 import sys
 from pathlib import Path
 from typing import Annotated
+from .version import version_callback
 
 import typer
 
 from . import __version__
 
 __all__ = ["expose"]
-
-
-def version_callback(value: bool):
-    if value:
-        typer.echo(__version__)
-        raise typer.Exit()
 
 
 def expose(
@@ -46,6 +41,8 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     # turn off local echo and process
     os.system("stty -echo raw")
+    # run the command in 'script' to make it believe its in a tty
+    command = f'script -qefc "{command}"'
 
     # Start the process and pass the current environment variables
     process = await asyncio.create_subprocess_shell(
@@ -53,7 +50,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
-        env={**os.environ},
+        env=os.environ,
     )
 
     sys.stdout.write(f"Process started with PID {process.pid}\n")
@@ -87,7 +84,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             # Forward regular input to the process
             process.stdin.write(char)
             await process.stdin.drain()
-
 
     async def handle_client(reader, writer):
         """Handle a new client connection."""
@@ -127,7 +123,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
         # Create a Unix domain socket server, calling handle_client for each connection
         server = await asyncio.start_unix_server(handle_client, path=str(socket_path))
-        sys.stdout.write(f"Socket created at {socket_path}.\n")
+        sys.stdout.write(f"\r\nSocket created at {socket_path}.\r\n")
         asyncio.create_task(server.serve_forever())
 
         """Monitor the process and exit when it terminates."""
@@ -146,8 +142,3 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         sys.stdout.write("\n\rSocket closed.\n")
 
 
-def main():
-    """
-    Main entry point for this module.
-    """
-    typer.run(expose)
