@@ -76,7 +76,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             char = await process.stdout.read(1)
             if not char:
                 break
-            sys.stdout.write(char.decode())
+            sys.stdout.write(char.decode(errors="ignore"))
             sys.stdout.flush()
             for writer in clients:
                 # insert a carriage return before newlines
