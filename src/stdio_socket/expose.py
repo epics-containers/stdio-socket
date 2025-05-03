@@ -32,17 +32,20 @@ def expose(
     The following command will connect to the socket and provide interactive
     access to the process:
         socat UNIX-CONNECT:/tmp/stdio.sock -,raw,echo=0
+    or use the built in client:
+        console
     """
     asyncio.run(_expose_stdio_async(command, socket))
 
 
 async def _expose_stdio_async(command: str, socket_path: Path):
-    clients: list[asyncio.StreamWriter] = []
-
-    # turn off local echo and process
+    # these tty settings make line editing work
     os.system("stty -echo raw")
     # run the command in 'script' to make it believe its in a tty
     command = f'script -qefc "{command}"'
+
+    # a list of currently connected clients
+    clients: list[asyncio.StreamWriter] = []
 
     # Start the process and pass the current environment variables
     process = await asyncio.create_subprocess_shell(
@@ -53,16 +56,25 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         env=os.environ,
     )
 
-    sys.stdout.write(f"Process started with PID {process.pid}\n")
+    sys.stderr.write(f"Process started with PID {process.pid}\n")
 
-    running = True
+    async def do_stdin(reader: asyncio.StreamReader, break_key: bytes | None = None):
+        """read stdin from a stream and forward to the process stdin"""
+        assert process.stdin is not None # for typechecker
 
-    async def forward_stdout_and_socket():
+        while True:
+            char: bytes = await reader.read(1)
+            if not char or char == break_key:
+                break
+            process.stdin.write(char)
+            await process.stdin.drain()
+
+    async def do_stdout():
         """Forward process stdout/stderr to sys.stdout and connected clients"""
-        assert process.stdout is not None
+        assert process.stdout is not None # for typechecker
 
-        while running:
-            char = await process.stdout.read(1)  # Read one character at a time
+        while True:
+            char = await process.stdout.read(1)
             if not char:
                 break
             sys.stdout.write(char.decode())
@@ -72,63 +84,44 @@ async def _expose_stdio_async(command: str, socket_path: Path):
                 writer.write(b"\r\n" if char == b"\n" else char)
                 await writer.drain()
 
-    async def write_to_process(reader):
-        """Forward input from one client to the process stdin"""
-        assert process.stdin is not None
-
-        while running:
-            char = await reader.read(1)  # Read one character
-            if not char or char == b"\x03":  # Ctrl+C
-                break
-
-            # Forward regular input to the process
-            process.stdin.write(char)
-            await process.stdin.drain()
-
-    async def handle_client(reader, writer):
+    async def handle_client(reader:asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
 
-        sys.stdout.write("\r\nClient connected to the socket.\r\n")
+        sys.stderr.write("\r\nClient connected to the socket.\r\n")
         try:
             clients.append(writer)
             await asyncio.gather(
-                write_to_process(reader),
+                do_stdin(reader, b"\x03"), # Ctrl C exits the client
             )
         finally:
             clients.remove(writer)
             writer.close()
             await writer.wait_closed()
-            sys.stdout.write("\n\rClient disconnected from the socket.\r\n")
+            sys.stderr.write("\n\rClient disconnected from the socket.\r\n")
 
-    async def monitor_stdin():
+    async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
-        assert process.stdin is not None
 
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
         await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
 
-        while True:
-            char: bytes = await reader.read(1)
-            if not char:
-                break
-            process.stdin.write(char)
-            await process.stdin.drain()
+        await do_stdin(reader)
 
     try:
         # Start forwarding stdout and stderr to sys.stdout and connected clients
-        stdout_task = asyncio.create_task(forward_stdout_and_socket())
+        asyncio.create_task(do_stdout())
         # Start monitoring system stdin and forward it to the process
-        stdin_task = asyncio.create_task(monitor_stdin())
+        asyncio.create_task(monitor_system_stdin())
 
         # Create a Unix domain socket server, calling handle_client for each connection
         server = await asyncio.start_unix_server(handle_client, path=str(socket_path))
-        sys.stdout.write(f"\r\nSocket created at {socket_path}.\r\n")
+        sys.stderr.write(f"\r\nSocket created at {socket_path}.\r\n")
         asyncio.create_task(server.serve_forever())
 
         """Monitor the process and exit when it terminates."""
         await process.wait()
-        sys.stdout.write("\r\nProcess exited. Cleaning up...\r\n")
+        sys.stderr.write("\r\nProcess exited. Cleaning up...\r\n")
         server.close_clients()
         server.close()
 
@@ -139,6 +132,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         # Clean up the socket and subprocess
         if socket_path.exists():
             socket_path.unlink()
-        sys.stdout.write("\n\rSocket closed.\n")
+        sys.stderr.write("\n\rSocket closed.\n")
 
 
