@@ -19,7 +19,12 @@ def expose(
         Path, typer.Option(help="The filepath to the socket to use")
     ] = Path("/tmp/stdio.sock"),
     version: Annotated[
-        bool | None, typer.Option("--version", callback=version_callback)
+        bool | None,
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            help="print the version number and exit",
+        ),
     ] = None,
 ):
     """
@@ -38,11 +43,9 @@ def expose(
 
 
 async def _expose_stdio_async(command: str, socket_path: Path):
-    # these tty settings make line editing work
+    # these stty settings and psuedo-tty make line editing work
     os.system("stty -echo raw")
-    # run the command in 'script' to make it believe its in a tty
-    # use of script compels us to log - so only log inputs
-    command = f'script -I /tmp/script-log.txt -qefc "{command}"'
+    command = f'pptty "{command}"'
 
     # a list of currently connected clients
     clients: list[asyncio.StreamWriter] = []
@@ -87,7 +90,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
 
-        sys.stderr.write("\r\nClient connected to the socket.\r\n")
         try:
             clients.append(writer)
             await asyncio.gather(
@@ -97,7 +99,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             clients.remove(writer)
             writer.close()
             await writer.wait_closed()
-            sys.stderr.write("\n\rClient disconnected from the socket.\r\n")
 
     async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
