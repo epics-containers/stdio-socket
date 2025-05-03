@@ -41,7 +41,8 @@ async def _expose_stdio_async(command: str, socket_path: Path):
     # these tty settings make line editing work
     os.system("stty -echo raw")
     # run the command in 'script' to make it believe its in a tty
-    command = f'script -qefc "{command}"'
+    # use of script compels us to log - so only log inputs
+    command = f'script -I /tmp/script-log.txt -qefc "{command}"'
 
     # a list of currently connected clients
     clients: list[asyncio.StreamWriter] = []
