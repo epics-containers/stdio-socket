@@ -21,7 +21,12 @@ def console_entrypoint(
         Path, typer.Option(help="The filepath to the socket to use")
     ] = Path("/tmp/stdio.sock"),
     version: Annotated[
-        bool | None, typer.Option("--version", callback=version_callback)
+        bool | None,
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            help="print the version number and exit",
+        ),
     ] = None,
 ):
     """
