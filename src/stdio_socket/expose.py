@@ -122,7 +122,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         """Monitor the process and exit when it terminates."""
         await process.wait()
         sys.stderr.write("\r\nProcess exited. Cleaning up...\r\n")
-        server.close_clients()
         server.close()
 
     finally:
