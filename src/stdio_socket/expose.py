@@ -5,11 +5,10 @@ import os
 import sys
 from pathlib import Path
 from typing import Annotated
-from .version import version_callback
 
 import typer
 
-from . import __version__
+from .version import version_callback
 
 __all__ = ["expose"]
 
@@ -60,7 +59,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     async def do_stdin(reader: asyncio.StreamReader, break_key: bytes | None = None):
         """read stdin from a stream and forward to the process stdin"""
-        assert process.stdin is not None # for typechecker
+        assert process.stdin is not None  # for typechecker
 
         while True:
             char: bytes = await reader.read(1)
@@ -71,7 +70,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     async def do_stdout():
         """Forward process stdout/stderr to sys.stdout and connected clients"""
-        assert process.stdout is not None # for typechecker
+        assert process.stdout is not None  # for typechecker
 
         while True:
             char = await process.stdout.read(1)
@@ -84,14 +83,14 @@ async def _expose_stdio_async(command: str, socket_path: Path):
                 writer.write(b"\r\n" if char == b"\n" else char)
                 await writer.drain()
 
-    async def handle_client(reader:asyncio.StreamReader, writer: asyncio.StreamWriter):
+    async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
 
         sys.stderr.write("\r\nClient connected to the socket.\r\n")
         try:
             clients.append(writer)
             await asyncio.gather(
-                do_stdin(reader, b"\x03"), # Ctrl C exits the client
+                do_stdin(reader, b"\x03"),  # Ctrl C exits the client
             )
         finally:
             clients.remove(writer)
@@ -133,5 +132,3 @@ async def _expose_stdio_async(command: str, socket_path: Path):
         if socket_path.exists():
             socket_path.unlink()
         sys.stderr.write("\n\rSocket closed.\n")
-
-
