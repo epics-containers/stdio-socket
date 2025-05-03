@@ -90,7 +90,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
 
-        sys.stderr.write("\r\nClient connected to the socket.\r\n")
         try:
             clients.append(writer)
             await asyncio.gather(
@@ -100,7 +99,6 @@ async def _expose_stdio_async(command: str, socket_path: Path):
             clients.remove(writer)
             writer.close()
             await writer.wait_closed()
-            sys.stderr.write("\n\rClient disconnected from the socket.\r\n")
 
     async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
