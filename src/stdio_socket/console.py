@@ -35,7 +35,7 @@ async def _console_async(socket_path: Path):
     os.system("stty -echo raw")
 
     async def do_stdout(reader: asyncio.StreamReader):
-        """Forward socket output to sys.stdout"""
+        """Forward socket output to system stdout"""
 
         while True:
             char = await reader.read(1)
@@ -57,18 +57,17 @@ async def _console_async(socket_path: Path):
             await writer.drain()
 
     try:
-        # Create a Unix domain socket server, calling handle_client for each connection
+        # Connect to the unix socket
         reader, writer = await asyncio.open_unix_connection(path=str(socket_path))
 
         # Start forwarding socket output to sys.stdout
         task_out = asyncio.create_task(do_stdout(reader))
         # Start forwarding stdin to socket
-        task_in = asyncio.create_task(do_stdin(writer))
+        asyncio.create_task(do_stdin(writer))
 
-        await asyncio.gather(task_in, task_out)
+        await asyncio.gather(task_out)
+        print("\r\nDisconnected.\r")
 
     finally:
         # restore terminal to normal state
         os.system("stty cooked")
-
-        sys.stderr.write("\n\rDisconnected.\n")
