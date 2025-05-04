@@ -61,16 +61,17 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     sys.stderr.write(f"Process started with PID {process.pid}\n")
 
-    async def do_stdin(reader: asyncio.StreamReader, break_key: bytes | None = None):
+    async def do_stdin(reader: asyncio.StreamReader, allow_break: bool = False):
         """read stdin from a stream and forward to the process stdin"""
         assert process.stdin is not None  # for typechecker
 
         while True:
             char: bytes = await reader.read(1)
-            if not char or char == break_key:
+            if not char or char == b"\x03" and allow_break:  # Ctrl-C
                 break
-            process.stdin.write(char)
-            await process.stdin.drain()
+            else:
+                process.stdin.write(char)
+                await process.stdin.drain()
 
     async def do_stdout():
         """Forward process stdout/stderr to sys.stdout and connected clients"""
@@ -92,9 +93,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
         try:
             clients.append(writer)
-            await asyncio.gather(
-                do_stdin(reader, b"\x03"),  # Ctrl C exits the client
-            )
+            await asyncio.gather(do_stdin(reader, allow_break=True))
         finally:
             clients.remove(writer)
             writer.close()
