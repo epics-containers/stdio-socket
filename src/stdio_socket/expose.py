@@ -127,7 +127,7 @@ async def _expose_stdio_async(command: str, socket_path: Path):
 
     finally:
         # restore terminal to normal state
-        os.system("stty cooked")
+        os.system("stty sane cooked")
 
         # Clean up the socket and subprocess
         if socket_path.exists():

@@ -75,4 +75,4 @@ async def _console_async(socket_path: Path):
 
     finally:
         # restore terminal to normal state
-        os.system("stty cooked")
+        os.system("stty sane cooked")
