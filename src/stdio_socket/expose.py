@@ -26,6 +26,12 @@ def expose(
             help="print the version number and exit",
         ),
     ] = None,
+    ptty: Annotated[
+        bool, typer.Option(help="enable psuedo tty (requrired by bash)")
+        ]=False,
+    stdin: Annotated[
+        bool, typer.Option(help="enable stdin on main process")
+           ]=False,
 ):
     """
     Expose the stdio of a process on a socket at unix:///tmp/stdio.sock.
@@ -39,13 +45,14 @@ def expose(
     or use the built in client:
         console
     """
-    asyncio.run(_expose_stdio_async(command, socket))
+    asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
 
 
-async def _expose_stdio_async(command: str, socket_path: Path):
-    # these stty settings and psuedo-tty make line editing work
+async def _expose_stdio_async(command: str, socket_path: Path, ptty:bool, stdin: bool):
     os.system("stty -echo raw")
-    command = f'pptty "{command}"'
+    if ptty:
+        # these stty settings and psuedo-tty make bash and vim work
+        command = f'pptty "{command}"'
 
     # a list of currently connected clients
     clients: list[asyncio.StreamWriter] = []
@@ -111,8 +118,10 @@ async def _expose_stdio_async(command: str, socket_path: Path):
     try:
         # Start forwarding stdout and stderr to sys.stdout and connected clients
         asyncio.create_task(do_stdout())
+
         # Start monitoring system stdin and forward it to the process
-        asyncio.create_task(monitor_system_stdin())
+        if stdin:
+            asyncio.create_task(monitor_system_stdin())
 
         # Create a Unix domain socket server, calling handle_client for each connection
         server = await asyncio.start_unix_server(handle_client, path=str(socket_path))
