@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -11,6 +12,11 @@ import typer
 from .version import version_callback
 
 __all__ = ["expose"]
+
+
+def stop(signum, frame):
+    """Signal handler to stop the process."""
+    sys.stderr.write(f"\n\rSignal {signal.Signals(signum).name} received\n\r")
 
 
 def expose(
@@ -43,6 +49,7 @@ def expose(
     or use the built in client:
         console
     """
+    signal.signal(signal.SIGINT, stop)
     asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
 
 
