@@ -28,10 +28,8 @@ def expose(
     ] = None,
     ptty: Annotated[
         bool, typer.Option(help="enable psuedo tty (requrired by bash)")
-        ]=False,
-    stdin: Annotated[
-        bool, typer.Option(help="enable stdin on main process")
-           ]=False,
+    ] = False,
+    stdin: Annotated[bool, typer.Option(help="enable stdin on main process")] = False,
 ):
     """
     Expose the stdio of a process on a socket at unix:///tmp/stdio.sock.
@@ -48,7 +46,7 @@ def expose(
     asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
 
 
-async def _expose_stdio_async(command: str, socket_path: Path, ptty:bool, stdin: bool):
+async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin: bool):
     os.system("stty -echo raw")
     if ptty:
         # these stty settings and psuedo-tty make bash and vim work
