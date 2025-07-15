@@ -50,6 +50,9 @@ def expose(
         console
     """
     signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGABRT, stop)
+    signal.signal(signal.SIGQUIT, stop)
     asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
 
 
