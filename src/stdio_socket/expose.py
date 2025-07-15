@@ -70,13 +70,16 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
         """read stdin from a stream and forward to the process stdin"""
         assert process.stdin is not None  # for typechecker
 
-        while True:
-            char: bytes = await reader.read(1)
-            if not char or char == b"\x03" and allow_break:  # Ctrl-C
-                break
-            else:
-                process.stdin.write(char)
-                await process.stdin.drain()
+        try:
+            while True:
+                char: bytes = await reader.read(1)
+                if not char or char == b"\x03" and allow_break:  # Ctrl-C
+                    break
+                else:
+                    process.stdin.write(char)
+                    await process.stdin.drain()
+        finally:
+            pass  # if a client terminates suddenly, we just ignore it
 
     async def do_stdout():
         """Forward process stdout/stderr to sys.stdout and connected clients"""
@@ -94,7 +97,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                     writer.write(b"\r\n" if char == b"\n" else char)
                     await writer.drain()
                 finally:
-                    pass  # if the client terminates suddenly, we just ignore it
+                    pass  # if a client terminates suddenly, we just ignore it
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
@@ -110,7 +113,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                 writer.close()
                 await writer.wait_closed()
             finally:
-                pass  # if the client temrminates suddenly, we just ignore it
+                pass  # if a client temrminates suddenly, we just ignore it
 
     async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
