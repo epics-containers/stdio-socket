@@ -97,12 +97,17 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
         """Handle a new client connection."""
 
         try:
+            sys.stderr.write("Client connected.\r\n")
             clients.append(writer)
             await asyncio.gather(do_stdin(reader, allow_break=True))
         finally:
-            clients.remove(writer)
-            writer.close()
-            await writer.wait_closed()
+            try:
+                sys.stderr.write("Client disconnected.\r\n")
+                clients.remove(writer)
+                writer.close()
+                await writer.wait_closed()
+            finally:
+                pass  # if the client temrminates suddenly, we just ignore it
 
     async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
