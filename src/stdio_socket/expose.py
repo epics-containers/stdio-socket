@@ -89,9 +89,12 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
             sys.stdout.write(char.decode(errors="ignore"))
             sys.stdout.flush()
             for writer in clients:
-                # insert a carriage return before newlines
-                writer.write(b"\r\n" if char == b"\n" else char)
-                await writer.drain()
+                try:
+                    # insert a carriage return before newlines
+                    writer.write(b"\r\n" if char == b"\n" else char)
+                    await writer.drain()
+                finally:
+                    pass  # if the client terminates suddenly, we just ignore it
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
