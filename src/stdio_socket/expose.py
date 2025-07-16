@@ -88,7 +88,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                 else:
                     process.stdin.write(char)
                     await process.stdin.drain()
-        finally:
+        except:
             pass  # if a client terminates suddenly, we just ignore it
 
     async def do_stdout():
@@ -106,7 +106,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                     # insert a carriage return before newlines
                     writer.write(b"\r\n" if char == b"\n" else char)
                     await writer.drain()
-                finally:
+                except:
                     pass  # if a client terminates suddenly, we just ignore it
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -122,7 +122,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                 clients.remove(writer)
                 writer.close()
                 await writer.wait_closed()
-            finally:
+            except:
                 pass  # if a client temrminates suddenly, we just ignore it
 
     async def monitor_system_stdin():
