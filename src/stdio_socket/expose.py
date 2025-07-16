@@ -140,7 +140,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
 
     try:
         sys.stderr.write(
-            f"\r\n>>> launching {command} using stdio-socket v{__version__}\r\n"
+            f"\r\n>> launching {command} using stdio-socket v{__version__} <<\r\n"
         )
         # Start forwarding stdout and stderr to sys.stdout and connected clients
         asyncio.create_task(do_stdout())
