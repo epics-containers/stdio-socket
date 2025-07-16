@@ -85,6 +85,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
         try:
             while True:
                 char: bytes = await reader.read(1)
+                if char == b"\x04":  # Ctrl-D
+                    sys.stderr.write("Ctrl-D received, NOT exiting...\n")
+                    continue
                 if not char or char == b"\x03" and allow_break:  # Ctrl-C
                     break
                 else:
