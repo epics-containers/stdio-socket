@@ -27,10 +27,9 @@ def expose(
             help="print the version number and exit",
         ),
     ] = None,
-    ptty: Annotated[
-        bool, typer.Option(help="enable psuedo tty (requrired by bash)")
-    ] = False,
+    ptty: Annotated[bool, typer.Option(help="enable psuedo tty")] = False,
     stdin: Annotated[bool, typer.Option(help="enable stdin on main process")] = False,
+    ctrl_d: Annotated[bool, typer.Option(help="enable Ctrl-D")] = False,
 ):
     """
     Expose the stdio of a process on a socket at unix:///tmp/stdio.sock.
@@ -44,10 +43,12 @@ def expose(
     or use the built in client:
         console
     """
-    asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
+    asyncio.run(_expose_stdio_async(command, socket, ptty, stdin, ctrl_d))
 
 
-async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin: bool):
+async def _expose_stdio_async(
+    command: str, socket_path: Path, ptty: bool, stdin: bool, ctrl_d: bool
+):
     os.system("stty -echo raw")
     if ptty:
         # these stty settings and psuedo-tty make bash and vim work
@@ -73,7 +74,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
 
         while True:
             char: bytes = await reader.read(1)
-            if char == b"\x04":  # Ctrl-D
+            if char == b"\x04" and not ctrl_d:  # Ctrl-D
                 sys.stderr.write("Ctrl-D received, NOT exiting...\n")
                 continue
             if not char or char == b"\x03" and allow_break:  # Ctrl-C
@@ -120,9 +121,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
         await do_stdin(reader)
 
     try:
-        sys.stderr.write(
-            f"\r\n>> launching {command} using stdio-socket v{__version__} <<\r\n"
-        )
+        msg = f"\r\n>> launching {command} using stdio-socket v{__version__} <<\r\n"
+        sys.stderr.write(msg)
+
         # Start forwarding stdout and stderr to sys.stdout and connected clients
         asyncio.create_task(do_stdout())
 
