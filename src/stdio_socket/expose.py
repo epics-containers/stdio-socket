@@ -9,6 +9,7 @@ from typing import Annotated
 
 import typer
 
+from . import __version__
 from .version import version_callback
 
 __all__ = ["expose"]
@@ -135,6 +136,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
         await do_stdin(reader)
 
     try:
+        sys.stderr.write(
+            f"\r\n>>> launching {command} using stdio-socket v{__version__}\r\n"
+        )
         # Start forwarding stdout and stderr to sys.stdout and connected clients
         asyncio.create_task(do_stdout())
 
