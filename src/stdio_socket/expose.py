@@ -90,7 +90,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                     process.stdin.write(char)
                     await process.stdin.drain()
         except:
-            pass  # if a client terminates suddenly, we just ignore it
+            sys.stderr.write("Error reading from stdin.\r\n")
 
     async def do_stdout():
         """Forward process stdout/stderr to sys.stdout and connected clients"""
@@ -108,7 +108,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                     writer.write(b"\r\n" if char == b"\n" else char)
                     await writer.drain()
                 except:
-                    pass  # if a client terminates suddenly, we just ignore it
+                    sys.stderr.write("Error writing to client.\r\n")
+                    continue
+        sys.stderr.write("Process stdout closed.\r\n")
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
@@ -124,7 +126,7 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
                 writer.close()
                 await writer.wait_closed()
             except:
-                pass  # if a client temrminates suddenly, we just ignore it
+                sys.stderr.write("Error closing client connection.\r\n")
 
     async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
