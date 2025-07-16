@@ -2,7 +2,6 @@
 
 import asyncio
 import os
-import signal
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -13,11 +12,6 @@ from . import __version__
 from .version import version_callback
 
 __all__ = ["expose"]
-
-
-def stop(signum, frame):
-    """Signal handler to stop the process."""
-    sys.stderr.write(f"\n\rSignal {signal.Signals(signum).name} received\n\r")
 
 
 def expose(
@@ -50,11 +44,6 @@ def expose(
     or use the built in client:
         console
     """
-    signal.signal(signal.SIGINT, stop)
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGABRT, stop)
-    signal.signal(signal.SIGQUIT, stop)
-    signal.signal(signal.SIGHUP, stop)
     asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
 
 
@@ -82,19 +71,16 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
         """read stdin from a stream and forward to the process stdin"""
         assert process.stdin is not None  # for typechecker
 
-        try:
-            while True:
-                char: bytes = await reader.read(1)
-                if char == b"\x04":  # Ctrl-D
-                    sys.stderr.write("Ctrl-D received, NOT exiting...\n")
-                    continue
-                if not char or char == b"\x03" and allow_break:  # Ctrl-C
-                    break
-                else:
-                    process.stdin.write(char)
-                    await process.stdin.drain()
-        except:
-            sys.stderr.write("Error reading from stdin.\r\n")
+        while True:
+            char: bytes = await reader.read(1)
+            if char == b"\x04":  # Ctrl-D
+                sys.stderr.write("Ctrl-D received, NOT exiting...\n")
+                continue
+            if not char or char == b"\x03" and allow_break:  # Ctrl-C
+                break
+            else:
+                process.stdin.write(char)
+                await process.stdin.drain()
 
     async def do_stdout():
         """Forward process stdout/stderr to sys.stdout and connected clients"""
@@ -107,14 +93,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
             sys.stdout.write(char.decode(errors="ignore"))
             sys.stdout.flush()
             for writer in clients:
-                try:
-                    # insert a carriage return before newlines
-                    writer.write(b"\r\n" if char == b"\n" else char)
-                    await writer.drain()
-                except:
-                    sys.stderr.write("Error writing to client.\r\n")
-                    continue
-        sys.stderr.write("Process stdout closed.\r\n")
+                # insert a carriage return before newlines
+                writer.write(b"\r\n" if char == b"\n" else char)
+                await writer.drain()
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """Handle a new client connection."""
@@ -124,13 +105,10 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty: bool, stdin
             clients.append(writer)
             await asyncio.gather(do_stdin(reader, allow_break=True))
         finally:
-            try:
-                sys.stderr.write("Client disconnected.\r\n")
-                clients.remove(writer)
-                writer.close()
-                await writer.wait_closed()
-            except:
-                sys.stderr.write("Error closing client connection.\r\n")
+            sys.stderr.write("Client disconnected.\r\n")
+            clients.remove(writer)
+            writer.close()
+            await writer.wait_closed()
 
     async def monitor_system_stdin():
         """Forward system stdin to the process stdin."""
