@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 
+from . import __version__
 from .version import version_callback
 
 __all__ = ["expose"]
@@ -26,12 +27,9 @@ def expose(
             help="print the version number and exit",
         ),
     ] = None,
-    ptty: Annotated[
-        bool, typer.Option(help="enable psuedo tty (requrired by bash)")
-        ]=False,
-    stdin: Annotated[
-        bool, typer.Option(help="enable stdin on main process")
-           ]=False,
+    ptty: Annotated[bool, typer.Option(help="enable psuedo tty")] = False,
+    stdin: Annotated[bool, typer.Option(help="enable stdin on main process")] = False,
+    ctrl_d: Annotated[bool, typer.Option(help="enable Ctrl-D")] = False,
 ):
     """
     Expose the stdio of a process on a socket at unix:///tmp/stdio.sock.
@@ -45,10 +43,12 @@ def expose(
     or use the built in client:
         console
     """
-    asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
+    asyncio.run(_expose_stdio_async(command, socket, ptty, stdin, ctrl_d))
 
 
-async def _expose_stdio_async(command: str, socket_path: Path, ptty:bool, stdin: bool):
+async def _expose_stdio_async(
+    command: str, socket_path: Path, ptty: bool, stdin: bool, ctrl_d: bool
+):
     os.system("stty -echo raw")
     if ptty:
         # these stty settings and psuedo-tty make bash and vim work
@@ -74,6 +74,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty:bool, stdin:
 
         while True:
             char: bytes = await reader.read(1)
+            if char == b"\x04" and not ctrl_d:  # Ctrl-D
+                sys.stderr.write("Ctrl-D received, NOT exiting...\n")
+                continue
             if not char or char == b"\x03" and allow_break:  # Ctrl-C
                 break
             else:
@@ -99,9 +102,11 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty:bool, stdin:
         """Handle a new client connection."""
 
         try:
+            sys.stderr.write("Client connected.\r\n")
             clients.append(writer)
             await asyncio.gather(do_stdin(reader, allow_break=True))
         finally:
+            sys.stderr.write("Client disconnected.\r\n")
             clients.remove(writer)
             writer.close()
             await writer.wait_closed()
@@ -116,6 +121,9 @@ async def _expose_stdio_async(command: str, socket_path: Path, ptty:bool, stdin:
         await do_stdin(reader)
 
     try:
+        msg = f"\r\n>> launching {command} using stdio-socket v{__version__} <<\r\n"
+        sys.stderr.write(msg)
+
         # Start forwarding stdout and stderr to sys.stdout and connected clients
         asyncio.create_task(do_stdout())
 
