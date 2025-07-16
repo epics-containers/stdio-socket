@@ -54,6 +54,7 @@ def expose(
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGABRT, stop)
     signal.signal(signal.SIGQUIT, stop)
+    signal.signal(signal.SIGHUP, stop)
     asyncio.run(_expose_stdio_async(command, socket, ptty, stdin))
 
 
