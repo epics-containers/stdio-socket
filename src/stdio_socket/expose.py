@@ -88,14 +88,15 @@ async def _expose_stdio_async(
         assert process.stdout is not None  # for typechecker
 
         while True:
-            char = await process.stdout.read(1)
-            if not char:
+            block = await process.stdout.read(2048)
+            if not block:
                 break
-            sys.stdout.write(char.decode(errors="ignore"))
+            block = block.replace(b"\n", b"\r\n")
+            sys.stdout.buffer.write(block)
             sys.stdout.flush()
             for writer in clients:
                 # insert a carriage return before newlines
-                writer.write(b"\r\n" if char == b"\n" else char)
+                writer.write(block)
                 await writer.drain()
 
     async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
