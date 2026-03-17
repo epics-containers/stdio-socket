@@ -4,6 +4,7 @@ in a terminal even when its stdio is piped.
 """
 
 import pty
+import shlex
 from typing import Annotated
 
 import typer
@@ -14,5 +15,5 @@ def pptty_entrypoint(
 ) -> None:
     """Use the pty library to wrap a process in psuedo tty"""
 
-    command_list = command.split(" ")
+    command_list = shlex.split(command)
     pty.spawn(command_list)
