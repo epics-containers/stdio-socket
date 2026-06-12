@@ -210,7 +210,14 @@ async def _expose_stdio_async(
 
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
-        await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
+        await asyncio.get_running_loop().connect_read_pipe(lambda: protocol, sys.stdin)
+        # connect_read_pipe sets O_NONBLOCK on the stdin fd. On a TTY, stdin (fd 0)
+        # and stdout (fd 1) share the same open file description, so stdout also
+        # becomes non-blocking. This causes do_stdout's synchronous
+        # sys.stdout.buffer.write() calls to raise BlockingIOError, crashing the
+        # task and leaving the subprocess pipe unread — deadlocking process.wait().
+        # Restore stdout to blocking mode to fix this.
+        os.set_blocking(sys.stdout.fileno(), True)
 
         await do_stdin(reader)
 
