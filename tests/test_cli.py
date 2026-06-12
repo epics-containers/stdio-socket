@@ -1,3 +1,4 @@
+import errno
 import os
 import pty
 import subprocess
@@ -29,7 +30,7 @@ def test_stdin_flag_does_not_hang_with_large_output():
     master_fd, slave_fd = pty.openpty()
     try:
         proc = subprocess.Popen(
-            ["stdio-expose", "--stdin", large_output_cmd],
+            [sys.executable, "-m", "stdio_socket", "--stdin", large_output_cmd],
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
@@ -50,13 +51,20 @@ def test_stdin_flag_does_not_hang_with_large_output():
                 if proc.poll() is not None:
                     break
                 time.sleep(0.05)
-            except OSError:
-                # EIO: slave end closed, process has exited
-                break
+            except OSError as e:
+                if e.errno == errno.EIO:
+                    # slave end closed, process has exited
+                    break
+                raise
     finally:
         os.close(master_fd)
         if slave_fd != -1:
             os.close(slave_fd)
 
-    proc.wait(timeout=5)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+        raise
     assert proc.returncode == 0

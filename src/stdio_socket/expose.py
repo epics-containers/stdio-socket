@@ -217,7 +217,11 @@ async def _expose_stdio_async(
         # sys.stdout.buffer.write() calls to raise BlockingIOError, crashing the
         # task and leaving the subprocess pipe unread — deadlocking process.wait().
         # Restore stdout to blocking mode to fix this.
-        os.set_blocking(sys.stdout.fileno(), True)
+        try:
+            if sys.stdin.isatty() and sys.stdout.isatty():
+                os.set_blocking(sys.stdout.fileno(), True)
+        except (OSError, AttributeError, ValueError):
+            pass
 
         await do_stdin(reader)
 
